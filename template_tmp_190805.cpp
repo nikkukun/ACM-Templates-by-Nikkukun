@@ -6,6 +6,15 @@ typedef unsigned int ui;
 typedef unsigned long long ull;
 typedef pair<int,int> pint;
 typedef long double ld;
+typedef __int128 i128;
+
+/*
+	Prime Table
+	929292929
+	299213
+	19260817
+	991145149
+*/
 
 const int N=299213;
 const int INF=0x3f3f3f3f;
@@ -182,7 +191,7 @@ namespace _MaxFlowMinCost{
 
 namespace _Hungary{
 	int g[N][N];
-	
+
 	bool vst[N]; int lnk[N];
 
 	bool DFS(int u,int n){
@@ -205,6 +214,50 @@ namespace _Hungary{
 			if(DFS(i,n))ans++;
 		}
 		return ans;
+	}
+};
+
+// DEBUG:
+namespace _MinVertexCover{
+	int lnk[N];
+	bool inS[N],inT[N];
+	
+	bool DFS(int u,int n){
+		inS[u]=1;
+		for(auto v:a[u]){
+			if(inT[v])continue;
+			inT[v]=1;
+			if(!lnk[v]||DFS(lnk[v],n)){
+				lnk[v]=u;
+				return 1;
+			}
+		}
+		return 0;
+	}
+	
+	void Hungary(int n){
+		static bool isMatch[N];
+		for(int i=1;i<=n;i++){
+			fill(inT+1,inT+n+1,0);
+			if(DFS(i,n))isMatch[i]=1;
+		}
+	
+		fill(inS+1,inS+n+1,0);
+		fill(inT+1,inT+n+1,0);
+	
+		vector<int> ans;
+		for(int i=1;i<=n;i++)
+			if(!isMatch[i])DFS(i,n);
+		for(int i=1;i<=n;i++)
+			if(__builtin_parity(b[i])==1 && inS[i])
+				ans.push_back(b[i]);
+		for(int i=1;i<=n;i++)
+			if(__builtin_parity(b[i])==0 && !inT[i])
+				ans.push_back(b[i]);
+		
+		cout<<ans.size()<<endl;
+		for(auto i:ans)
+			cout<<i<<' ';
 	}
 };
 
@@ -444,6 +497,61 @@ namespace _PAM{
 			_PAM::Insert(s,i);
 		printf("%lld",_PAM::Build());
 	}
+};
+
+// DEBUG:
+namespace SA{
+	//a \in [0,n)
+	//$a_n$ = min(0)
+	//1 \leq a_i< m
+	struct SuffixArray{
+		int sa[N],hei[N],rnk[N];
+
+		void Init(int *a,int n){
+			InitSa(a,n);
+			InitHeight(a,n);
+			for(int i=0;i<n;i++){
+				sa[i]=sa[i+1];
+				hei[i]=hei[i+1];
+				rnk[i]--;
+			}
+		}
+
+		inline bool Cmp(int *a,int x,int y,int l){
+			return a[x]==a[y]&&a[x+l]==a[y+l];
+		}
+
+		void InitSa(int *a,int n){
+			int m=26;
+			static int tmpX[N],tmpY[N],s[N];
+			int *x=tmpX,*y=tmpY;
+
+			a[n]=0;
+			for(int i=0;i<m;i++)s[i]=0;
+			for(int i=0;i<=n;i++)s[x[i]=a[i]]++;
+			for(int i=1;i<m;i++)s[i]+=s[i-1];
+			for(int i=n;i>=0;i--)sa[--s[x[i]]]=i;
+
+			for(int i=1,p=1;p<=n;i<<=1,m=p){
+				p=0;
+				for(int j=n-i+1;j<=n;j++)y[p++]=j;
+				for(int j=0;j<=n;j++)if(sa[j]>=i)y[p++]=sa[j]-i;
+				for(int j=0;j<m;j++)s[j]=0;
+				for(int j=0;j<=n;j++)s[x[y[j]]]++;
+				for(int j=1;j<m;j++)s[j]+=s[j-1];
+				for(int j=n;j>=0;j--)sa[--s[x[y[j]]]]=y[j];
+				swap(x,y);
+				p=1,x[sa[0]]=0;
+				for(int j=1;j<=n;j++)x[sa[j]]=Cmp(y,sa[j-1],sa[j],i)?p-1:p++;
+			}
+		}
+
+		void InitHeight(int *a,int n){
+			for(int i=1;i<=n;i++)rnk[sa[i]]=i;
+			for(int i=0,j,k=0;i<n;hei[rnk[i++]]=k)
+				for(k?k--:0,j=sa[rnk[i]-1];a[i+k]==a[j+k];k++);
+		}
+	};
 };
 
 // =============== FFT / Fast Fourier Transformation ===============
@@ -775,13 +883,466 @@ namespace _PolyDiv{
 	}
 };
 
+// =============== 树 / Tree Algorithm ===============
+
+// DEBUG:
+namespace HeavyLightDecomposition{
+	SegTree t;
+	int dep[N],siz[N],pa[N],son[N],top[N],idx[N];
+	int nIdx;
+
+	void Build(){
+		nIdx=dep[0]=siz[0]=son[0]=0;
+		DFS1(); DFS2();
+	}
+	void DFS1(int u=1,int pa=0){
+		dep[u]=dep[HLDcp::pa[u]=pa]+1;
+		siz[u]=1;son[u]=0;
+		for(int i=0;i<a[u].size();i++){
+			int v=a[u][i];
+			if(v==pa)continue;
+			DFS1(v,u);
+			if(siz[v]>siz[son[u]])son[u]=v;
+			siz[u]+=siz[v];
+		}
+	}
+	void DFS2(int u=1,int pa=0){
+		idx[u]=++nIdx;top[u]=u;
+		if(son[pa]==u)top[u]=top[pa];
+		if(son[u])DFS2(son[u],u);
+		for(int i=0;i<a[u].size();i++){
+			int v=a[u][i];
+			if(v==pa||v==son[u])continue;
+			DFS2(v,u);
+		}
+	}
+	void Add(int u){
+		while(top[u]!=0){
+			t.Update(idx[top[u]],idx[u],1);
+			u=pa[top[u]];
+		}
+	}
+	void Delete(int u){
+		t.Update(idx[u],idx[u]+siz[u]-1,0);
+	}
+	// 对边操作，每个点代表(u,pa[u])这条边
+	void Modify(int u,int v,int w){
+		while(top[u]!=top[v]){
+			if(dep[top[u]]<dep[top[v]])swap(u,v);
+			t.Modify(idx[top[u]],idx[u],1,w,1,nIdx);
+			u=pa[top[u]];
+		}
+		// 节点相同则退出
+		if(u==v)return;
+		if(dep[u]>dep[v])swap(u,v);
+		t.Modify(idx[u]+1,idx[v],1,w,1,nIdx);
+	}
+};
+
+// DEBUG:
+// FIXME: 没有建树过程
+namespace FHQTreap{
+	struct Node{
+		int v,w,siz,lazy; ll sum;
+		Node *lch,*rch;
+
+		Node(int _v=0){
+			v=_v, w=rand(), siz=1;
+			sum=v, lazy=0;
+			lch=rch=nullptr;
+		}
+		void Maintain(){
+			siz=1; sum=v;
+			if(lch!=nullptr)
+				siz+=lch->siz,sum+=lch->sum;
+			if(rch!=nullptr)
+				siz+=rch->siz,sum+=rch->sum;
+		}
+		void Pushdown(){
+			if((this==nullptr)||lazy==0)return;
+			if(lch!=nullptr)lch->lazy^=1;
+			if(rch!=nullptr)rch->lazy^=1;
+			swap(lch,rch); lazy=0;
+		}
+	};
+
+	typedef pair<Node*,Node*> pNode;
+	Node mp[N];
+
+	struct Treap{
+		Node *rt,*pit;
+
+		Treap(){
+			pit=mp; rt=nullptr;
+		}
+		Node* NewNode(int v){
+			*pit=Node(v);
+			return pit++;
+		}
+		void Insert(int v){
+			Node* o=NewNode(v);
+			rt=Merge(rt,o);
+		}
+		pNode Split(Node* o,int k){
+			pNode ret(nullptr,nullptr);
+			if(o==nullptr)return ret;
+
+			o->Pushdown();
+			int siz=(o->lch==nullptr)?0:o->lch->siz;
+		
+			if(k<=siz){
+				ret=Split(o->lch,k);
+				o->lch=ret.second;
+				o->Maintain();
+				ret.second=o;
+			}else{
+				ret=Split(o->rch,k-siz-1);
+				o->rch=ret.first;
+				o->Maintain();
+				ret.first=o;
+			}
+
+			return ret;
+		}
+		Node* Merge(Node* a,Node* b){
+			if(a==nullptr)return b;
+			if(b==nullptr)return a;
+
+			a->Pushdown(); b->Pushdown();
+			if(a->w < b->w){
+				a->rch=Merge(a->rch,b);
+				a->Maintain();
+				return a;
+			}else{
+				b->lch=Merge(a,b->lch);
+				b->Maintain();
+				return b;
+			}
+		}
+		void Print(Node* o){
+			if(o==nullptr)return;
+			o->Pushdown();
+			Print(o->lch);
+			printf("%d ",o->v);
+			Print(o->rch);
+		}
+		ll Inverse(int L,int R){
+			pNode a=Split(rt,L-1);
+			pNode b=Split(a.second,R-L+1);
+			b.first->lazy^=1;		//b一定非空
+			int ret=b.first->sum;
+			rt=Merge(Merge(a.first,b.first),b.second);
+			return ret;
+		}
+	};
+};
+
+// DEBUG:
+namespace _DFS4Root{
+	int _maxSiz;
+	int maxSiz[N];
+	void DFS(int u,int pa,int n){
+		static int siz[N]; siz[u]=1;
+		for(auto v:a[u]){
+			if(v==pa)continue;
+			DFS(v,u,n);
+			siz[u]+=siz[v];
+			maxSiz[u]=max(maxSiz[u],siz[v]);
+		}
+		maxSiz[u]=max(maxSiz[u],n-siz[u]);
+		_maxSiz=min(_maxSiz,maxSiz[u]);
+	}
+};
+
+// DEBUG:
+namespace _TreeHash{
+	const int P=99299299;
+	// f[u] = xor f[v]*P+siz[v]
+	ull TreeHash(int u,int pa){
+		static int siz[N];
+		siz[u]=1; ull ret=0;
+		for(auto v:a[u]){
+			if(v==pa)continue;
+			auto _hash=TreeHash(v,u);
+			ret^=_hash*P+siz[v];
+			siz[u]+=siz[v];
+		}
+		return ret;
+	}
+};
+
+// DEBUG:
+namespace DSUOnTree{
+	int ans[N],cnt[N],sum[N];
+
+	void Modify(int u,int pa,int op,int son){
+		if(op==1)sum[++cnt[c[u]]]++;
+		else sum[cnt[c[u]]--]--;
+		for(auto v:a[u])
+			if(v!=pa && v!=son)
+				Modify(v,u,op,son);
+	}
+
+	void DFS(int u,int pa,bool keep){
+		int son=0;
+		for(auto v:a[u])
+			if(v!=pa && siz[v]>siz[son])
+				son=v;
+		for(auto v:a[u])
+			if(v!=pa && v!=son)
+				DFS(v,u,0);
+		if(son)DFS(son,u,1);
+		Modify(u,pa,1,son);
+
+		for(auto p:qry[u])
+			ans[p.first]=sum[p.second];
+
+		if(!keep)Modify(u,pa,-1,0);
+	}
+};
+
+// DEBUG:
+namespace DCOnTree{
+	bool vst[N];
+	int rt;
+	int siz[N],maxSiz[N]; 
+
+	void DFS4Rt(int u,int pa,int sum){
+		siz[u]=1;
+		for(auto v:a[u])
+			if(v!=pa && !vst[v]){
+				DFS4Rt(v,u,sum);
+				siz[u]+=siz[v];
+			}
+		maxSiz[u]=max(siz[u],sum-siz[u]);
+		if(maxSiz[u]>maxSiz[rt])rt=u;
+	}
+
+	void DFS(int u,int pa,int dep,ll w1,ll w2){
+		for(auto v:a[u])
+			if(v!=pa && !vst[v])
+				DFS(v,u,dep+1,w1,w2);
+	}
+
+	int in0[N],in1[N],out0[N],out1[N];
+
+	// 计算经过该点路径的贡献
+	void Cal(int u){
+		for(auto v:a[u]){
+			if(vst[v])continue;
+			DFS(v,u,1,w[u],0);		//remove w[u] in path w2
+		}
+	}
+
+	void Solve(int u){
+		vst[u]=1; Cal(u);
+		for(auto v:a[u]){
+			if(vst[v])continue;
+			DFS4Rt(v,rt=0,siz[v]);		//init rt=0
+			Solve(v);
+		}
+	}
+
+	int main(){
+		DFS4Rt(1,rt=0,n);
+		Solve(rt);
+	}
+};
+
 // =============== 数论 / Number Theory ===============
 
 // https://www.luogu.org/problem/P3383
+// DEBUG:
 namespace MillerRabin{
+	bool MR(ll p){
+		if(p==2)return 1;
+		if(p<=1 || !(p&1))return 0;
+		if(p==2152302898747LL)return 0;
+		if(p==3215031751)return 0;
+
+		mt19937_64 rng(time(0));
+		for(int i=0;i<UPP;i++){
+			ll a=rng()%(p-2)+2;
+			for(ll k=p-1; !(k&1); k>>=1){
+				ll t=QPow(a,k,p);
+				if(t!=1 && t!=p-1)return 0;
+				if(t==p-1)break;
+			}
+		}
+		return 1;
+	}
 };
 
+// DEBUG:
 namespace PollardRho{
+	ll QMul(i128 a,i128 b,ll mod){
+		return a*b%mod;
+	}
+
+	inline ll Abs(ll x){
+		return x>0?x:-x;
+	}
+
+	ll PR(ll x){
+		if(MR(x))return x;
+
+		mt19937_64 rng(time(0));
+		ll t1=rng()%(x-1)+1;
+		ll b=rng()%(x-1)+1;
+		ll t2=(QMul(t1,t1,x)+b)%x;
+
+		int cnt=0; ll p=1;
+		while(t1!=t2){
+			cnt++;
+			p=QMul(p,Abs(t2-t1),x);
+			if(p==0){
+				ll g=__gcd(Abs(t2-t1),x);
+				return max(PR(g),PR(x/g));
+			}
+			if(cnt==127){
+				ll g=__gcd(p,x);
+				if(g!=1 && g!=x)
+					return max(PR(g),PR(x/g));
+				cnt=0; p=1;
+			}
+			t1=(QMul(t1,t1,x)+b)%x;
+			t2=(QMul(t2,t2,x)+b)%x;
+			t2=(QMul(t2,t2,x)+b)%x;
+		}
+
+		ll g=__gcd(p,x);
+		if(g!=1 && g!=x)
+			return max(PR(g),PR(x/g));
+
+		return 0;
+	}
+
+	// 找到最大质因子
+	// 先MR判定再PR
+	ll Cal(ll x){
+		if(MR(x))cout<<"Prime\n";
+		else if(x==1)cout<<"1\n";
+		else{
+			ll ans=0;
+			while(ans==0)
+				ans=PR(x);
+			cout<<ans<<endl;
+		}
+	}
+};
+
+// DEBUG:
+namespace DuSieve{
+	const int N=3e6+5;
+	bool notPri[N];
+	int pri[N],mu[N],phi[N];
+	ll sumMu[N],sumPhi[N];
+
+	void Init(){
+		mu[1]=1; phi[1]=1;
+		for(int i=2;i<N;i++){
+			if(!notPri[i]){
+				pri[++pri[0]]=i;
+				phi[i]=i-1;
+				mu[i]=-1;
+			}
+			for(int j=1;j<=pri[0] && i*pri[j]<N;j++){
+				int x=i*pri[j]; notPri[x]=1;
+				if(i%pri[j]){
+					mu[x]=-mu[i];
+					phi[x]=phi[i]*(pri[j]-1);
+				}else{
+					mu[x]=0;
+					phi[x]=phi[i]*pri[j];
+					break;
+				}
+			}
+		}
+
+		for(int i=1;i<N;i++){
+			sumMu[i]=sumMu[i-1]+mu[i];
+			sumPhi[i]+=sumPhi[i-1]+phi[i];
+		}
+	}
+
+	unordered_map<int,ll> _sumMu,_sumPhi;
+
+	ll Mu(int n){
+		if(n<N)return sumMu[n];
+		if(_sumMu.count(n))return _sumMu[n];
+		ll ret=1;
+		// 实际上i和j可能爆int
+		for(int i=2,j;i<=n;i=j+1){
+			j=n/(n/i);
+			ret-=Mu(n/i)*(j-i+1);
+		}
+		return _sumMu[n]=ret;
+	}
+
+	// 实际上ans可能爆ll
+	ll Phi(int n){
+		if(n<N)return sumPhi[n];
+		if(_sumPhi.count(n))return _sumPhi[n];
+		ll ret=1LL*(1+n)*n/2;
+		// 实际上i和j可能爆int
+		for(int i=2,j;i<=n;i=j+1){
+			j=n/(n/i);
+			ret-=Phi(n/i)*(j-i+1);
+		}
+		return _sumPhi[n]=ret;
+	}
+};
+
+// =============== 离散数学 / Discrete Maths ===============
+
+// DEBUG:
+namespace BSGS{
+	int BSGS(ll a,ll b,ll p){
+		map<ll,int> s;
+		int m=(int)ceil(sqrt(p));
+		ll tmp=1;
+		for(int i=0;i<m;i++,tmp=tmp*a%p)
+			if(!s.count(tmp))s[tmp]=i;
+		ll inv=Invert(tmp,p);tmp=b;
+		for(int i=0;i<m;i++,tmp=tmp*inv%p)
+			if(s.count(tmp))return i*m+s[tmp]+1;
+		return -1;
+	}
+};
+
+// DEBUG:
+namespace ExGCD{
+	void ExtendGCD(int a,int b,int &x,int &y,int &g){
+		if(!b)x=1,y=0,g=a;
+		else ExtendGCD(b,a%b,y,x,g),y-=x*(a/b);
+	}
+	// ax+by=c
+	// 定义b'=b/g
+	// 解集：x = x0+k*b', y = y0-k*a'
+	// 最小非负解：x+ = (x0 % b'+ b') % (b'c')
+	// 为啥mod b'c'，b'c'>=b'不是吗，mod b'似乎就行
+};
+
+// DEBUG:
+namespace ExCRT{
+	ll ExtendCRT(){
+		ll a0,p0,a1,p1; bool flag=1;
+		cin>>p0>>a0;
+		for(int i=2;i<=n;i++){
+			ll x,y,g,c;
+			cin>>p1>>a1;
+			if(flag){
+				ExtendGCD(p0,p1,x,y,g);
+				c=a1-a0;
+				if(c%g){flag=0;continue;}
+				x=x*(c/g)%(p1/g);
+				a0+=x*p0;p0=p0*p1/g;
+				a0%=p0;
+			}
+		}
+		if(flag)return (a0%p0+p0)%p0;
+		else return -1;
+	}
 };
 
 // =============== 线性代数 / Linear Algebra ===============
@@ -834,6 +1395,54 @@ struct LBase{
 		for(int i=0;i<S;i++)
 			ret.Insert(b[i]);
 		return ret;
+	}G
+};
+
+// =============== 计算几何 / Computational Geometry ===============
+
+// DEBUG:
+namespace 2DGeometry{
+	const double EPS=1e-8;
+
+	struct Point{
+		double x,y;
+		Point operator-(Point b)const{
+			return (Point){x-b.x,y-b.y};
+		}
+		// DCmp
+		int operator*(Point b)const{
+			double ret=x*b.y-y*b.x;
+			if(ret>EPS)return 1;
+			else if(ret<-EPS)return -1;
+			else return 0;
+		}
+	};
+
+	bool Cmp(Point a,Point b){
+		return a.x==b.x ? a.y<b.y : a.x<b.x;
+	}
+
+	const int N=100000+5;
+
+	// may return a point or a segment
+	// the end equal to the start
+	// when a-b-c is collinear, b will be inserted
+	void ConvexHull(vector<Point> &p,vector<Point> &ret){
+		static Point s[N]; int t=0;
+		sort(p.begin(),p.end(),Cmp);
+		
+		int n=p.size();
+		for(int i=0;i<n;i++){
+			while(t>1 && (s[t]-s[t-1])*(p[i]-s[t])<0)t--;
+			s[++t]=p[i];
+		}
+		int _t=t;
+		for(int i=n-2;i>=0;i--){
+			while(t>_t && (s[t]-s[t-1])*(p[i]-s[t])<0)t--;
+			s[++t]=p[i];
+		}
+		for(int i=1;i<=t;i++)
+			ret.push_back(s[i]);
 	}
 };
 
@@ -901,5 +1510,17 @@ namespace _FastIO{
 			s[t++]=x%10, x/=10;
 		}while(x);
 		while(t)putchar(s[--t]+'0');
+	}
+};
+
+// DEBUG:
+// 能用__int128的时候就快得一批
+namespace QMul{
+	ll QMul(ll a,ll b){
+		if(a>b)swap(a,b);
+		ll ret=0;
+		for(;b;b>>=1,(a<<=1)%=p)
+			if(b&1)(ret+=a)%=p;
+		return ret;
 	}
 };
