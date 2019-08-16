@@ -16,9 +16,10 @@ typedef __int128 i128;
 	991145149
 */
 
-const int N=299213;
-const int INF=0x3f3f3f3f;
-const ll INF_LL=0x3f3f3f3f3f3f3f3f;
+const int N = 299213;
+const int INF = 0x3f3f3f3f;
+const ll INF_LL = 0x3f3f3f3f3f3f3f3f;
+const int MOD = 929292929;
 
 // =============== 图论 / Graph Theroy ===============
 
@@ -795,6 +796,43 @@ namespace _MTT_4{
 	}
 };
 
+
+// DEBUG:
+namespace FWT{
+	// n 是个 2^p 的数，也就是多项式的阶数
+	// 但是最高项是 x^(n-1)
+	// 可能需要取模
+
+	void FWT_OR(int w[], int n, int op){
+		for(int len=1; len<n; len<<=1)
+			for(int i=0; i<n; i+=len*2)
+				for(int j=0; j<len; j++)
+					w[i+j+len] += w[i+j]*op;
+	}
+
+	void FWT_AND(int w[], int n, int op){
+		for(int len=1; len<n; len<<=1)
+			for(int i=0; i<n; i+=len*2)
+				for(int j=0; j<len; j++)
+					w[i+j] += w[i+j+len]*op;
+	}
+
+	const int INV2 = 929292929;
+	void FWT_XOR(int w[], int n, int op){
+		for(int len=1; len<n; len<<=1)
+			for(int i=0; i<n; i+=len*2)
+				for(int j=0; j<len; j++){
+					int x = w[i+j], y = w[i+j+len];
+					w[i+j] = x+y;
+					w[i+j+len] = x-y;
+					if(op == -1){
+						w[i+j] = 1LL * w[i+j] * INV2 % MOD;
+						w[i+j] = 1LL * w[i+j] * INV2 % MOD;
+					}
+				}
+	}
+};
+
 // =============== 多项式 / Polynomial ===============
 
 namespace _PolyInv{
@@ -1231,6 +1269,20 @@ namespace PollardRho{
 	}
 };
 
+// Cal(a, b, c, n) = sum[i=1->n]: floor((a*i+b)/c)
+// O(\log n)
+namespace Euclidean{
+	ll Cal(ll a, ll b, ll c, ll n){
+		if(a == 0) return b/c*(n+1)%MOD;
+		if(a>=c || b>=c)
+			return (n*(n+1)/2%MOD*(a/c)%MOD + (n+1)*(b/c)%MOD + Cal(a%c, b%c, c, n)) %MOD;
+		ll m = (a*n+b)/c;
+		return (n*m%MOD - Cal(c, c-b-1, a, m-1))%MOD;
+	}
+};
+
+// =============== 筛法 / Sieve Algorithm ===============
+
 // DEBUG:
 namespace DuSieve{
 	const int N=3e6+5;
@@ -1347,6 +1399,50 @@ namespace ExCRT{
 
 // =============== 线性代数 / Linear Algebra ===============
 
+struct LinearRecursiveFunction{
+	// 如果有 x_n = a_1*x_{n-1} + ... + a_m*x_{n-m+1}
+	// 那么特征多项式为 x^m = a_1*x^{m-1} + ... + a_m
+	// 且数组 cpoly = reverse(a, a+m+1)
+	int cpoly[N];
+
+	void Mul(int ret[],int a[],int b[]){
+		static ll c[N];
+		memset(c,0,sizeof(c));
+		
+		// NOTE: length of a and b maybe over m
+		// NOTE: so actually they should be normalized before used
+
+		for(int i=0;i<m;i++) if(a[i])
+			for(int j=0;j<m;j++) if(b[j])
+				c[i+j] = (c[i+j] + 1LL*a[i]*b[j])%MOD;
+
+		for(int i=2*m;i>=m;i--) if(c[i])
+			for(int j=0;j<m;j++)
+				c[i-m+j] = (c[i-m+j] + cpoly[j]*c[i])%MOD;
+
+		for(int i=0;i<m;i++)
+			ret[i]=c[i];
+	}
+	
+	int LinearRF(ll t){
+		static int ret[N],bas[N];
+		memset(ret,0,sizeof(ret));
+		memset(bas,0,sizeof(bas));
+		ret[0]=1; bas[1]=1;
+	
+		for(;t;t>>=1,Mul(bas,bas,bas))
+			if(t&1LL)Mul(ret,bas,ret);
+
+		// f 是原递推线性式
+		// 将求得的系数与值依次相乘即可
+		ll ans=0;
+		for(int i=0;i<m;i++)
+			ans=(ans+ret[i]*f[i])%MOD;
+	
+		return ans;
+	}
+};
+
 struct LBase{
 	// 32位版本
 	static const int S=32; 
@@ -1395,7 +1491,7 @@ struct LBase{
 		for(int i=0;i<S;i++)
 			ret.Insert(b[i]);
 		return ret;
-	}G
+	}
 };
 
 // =============== 计算几何 / Computational Geometry ===============
