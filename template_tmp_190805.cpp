@@ -65,6 +65,58 @@ namespace _TwoSAT{
 	}
 };
 
+// 邻接矩阵形式
+// FIXME: 修改成邻接表形式
+// 栈中是倒序的
+// REVIEW: https://www.luogu.org/problem/P1431
+struct EulerLoop{
+	int g[N][N];
+	int stk[N];
+
+	void EulerLoop(int u){
+		for(int v=1; v<N; v++){
+			if(g[u][v] == 0) continue;
+			g[u][v] = g[v][u] = 0;
+			EulerLoop(v);
+			stk[++stk[0]] = v;
+		}
+	}
+
+	// 返回是否存在欧拉回路
+	bool Solve(){
+		int n; cin >> n;
+		
+		static int deg[N];
+		for(int i=1; i<=n; i++){
+			char u,v; cin >> u >> v;
+			// 无向图，可以改成有向图
+			g[u][v] = g[v][u] = 1;
+			deg[u]++; deg[v]++;
+		}
+
+		int cnt1 = 0;
+		for(int i=1; i<N; i++)
+			cnt1 += deg[i]&1;
+		if(cnt1==1 || cnt1>2) return 0;
+
+		// 保证字典序最小
+		for(int i=1; i<N; i++){
+			if(deg[i] == 0) continue;
+			if(cnt1 && deg[i]%2==0) continue;
+			EulerLoop(i);
+			stk[++stk[0]] = i;
+			break;
+		}
+		// 可能不连通
+		if(stk[0] != n+1) return 0;
+
+		// stk 是欧拉回路上的点（起点出现两次）
+		reverse(stk+1, stk+stk[0]+1);
+
+		return 1;
+	}
+};
+
 // =============== 网络流 / Network Flow ===============
 
 namespace _MaxFlow{
@@ -1189,7 +1241,7 @@ namespace DCOnTree{
 
 // =============== 数论 / Number Theory ===============
 
-// https://www.luogu.org/problem/P3383
+// REVIEW: https://www.luogu.org/problem/P3383
 // DEBUG:
 namespace MillerRabin{
 	bool MR(ll p){
@@ -1346,6 +1398,61 @@ namespace DuSieve{
 };
 
 // =============== 离散数学 / Discrete Maths ===============
+
+// REVIEW: https://ac.nowcoder.com/acm/contest/889/B
+namespace QuadraticResidue{
+	ll QPow(ll bas, int t);
+	ll Inv(ll x);
+
+	// _w 是新数域的虚部单位
+	ll _w;
+	struct Complex{
+		ll x, y;
+		Complex(ll _x = 0, ll _y = 0){
+			x = _x, y = _y;
+		}
+		Complex operator * (Complex &b){
+			ll _x = (x*b.x + y*b.y % MOD *_w) % MOD;
+			ll _y = (x*b.y + y*b.x) % MOD;
+			return Complex(_x, _y);
+		}
+		Complex operator ^ (int t){
+			auto ret = Complex(1, 0);
+			auto bas = (*this);
+			for(; t; t>>=1, bas = bas*bas)
+				if(t&1) ret = ret*bas;
+			return ret;
+		}
+	};
+
+	// == 1：是二次剩余
+	// == MOD-1：不是二次剩余
+	// == 0：是 0
+	ll Legendre(ll x){
+		return QPow(x, (MOD-1)/2);
+	}
+
+	ll QuaRes(ll n){
+		if(Legendre(n) == 0) return 0;
+
+		mt19937 rng(time(0));
+		uniform_int_distribution<> dis(0, MOD-1);
+		while(1){
+			ll a = dis(rng);
+			_w = ((a*a - n) % MOD + MOD) % MOD;
+			if(Legendre(_w) != MOD-1) continue;
+			return (Complex(a, 1)^(MOD+1)/2).x;
+		}
+	}
+
+	void Solve(ll d){
+		// 无解
+		if(Legendre(d) == MOD-1) return;
+		// 解有两个，可能存在 x1 = x2 = 0 的情况
+		ll x1 = QuaRes(d);
+		ll x2 = MOD - x1;
+	}
+};
 
 // DEBUG:
 namespace BSGS{
