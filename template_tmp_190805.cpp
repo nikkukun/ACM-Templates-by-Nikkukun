@@ -390,50 +390,72 @@ namespace _KMP{
 	}
 };
 
-namespace _AhoCorasick{
-	int ch[N][C],f[N],pre[N];		// f=fail, pre=pre_end
-	bool isEnd[N]; int idx;
+struct AhoCorasick{
+	int ch[M][C], f[M], pre[M];
+	int isEnd[M];
+	int idx;
 
 	void Init(){
-		memset(ch,0,sizeof(ch));
-		memset(f,0,sizeof(f));
-		memset(pre,0,sizeof(pre));
-		memset(isEnd,0,sizeof(isEnd));
-		idx=0;
+		memset(ch, 0, sizeof(ch));
+		memset(f, 0, sizeof(f));
+		memset(pre, 0, sizeof(pre));
+		memset(isEnd, 0, sizeof(isEnd));
+		idx = 0;
 	}
 
-	void Build(char s[],int n){
-		int o=0;
-		for(int i=0;i<n;i++){
-			int c=s[i];
-			if(ch[o][c])o=ch[o][c];
-			else o=ch[o][c]=++idx;
+	// [1, n]
+	void Build(char s[], int n, int id){
+		int o = 0;
+		for(int i=1; i<=n; i++){
+			// 注意加入的是 [0, 26)
+			int c = s[i]-'a';
+			if(ch[o][c]) o = ch[o][c];
+			else o = ch[o][c] = ++idx;
 		}
-		isEnd[o]=1;
+		isEnd[o] = id;
 	}
 
 	void GetFail(){
 		queue<int> q;
-		for(int i=0;i<C;i++)
-			if(ch[0][i])q.push(ch[0][i]);
+		for(int c=0; c<C; c++)
+			if(ch[0][c]) q.push(ch[0][c]);
 
 		while(!q.empty()){
-			int h=q.front(); q.pop();
-			for(int i=0;i<C;i++){
-				int &u=ch[h][i], j=f[h];
+			int o = q.front(); q.pop();
+			for(int c=0; c<C; c++){
+				int &u = ch[o][c];
+				int j = f[o];
 				if(!u){
-					u=ch[j][i];
+					u = ch[j][c];
 					continue;
 				}
 				q.push(u);
-				while(j&&!ch[j][i])j=f[j];
-				f[u]=ch[j][i];
-				pre[u] = isEnd[f[u]]?f[u]:pre[f[u]];
+				while(j && !ch[j][c]) j = f[j];
+				f[u] = ch[j][c];
+				pre[u] = isEnd[f[u]] ? f[u] : pre[f[u]];
 			}
 		}
 	}
-
-	// 查询的时候如果isEnd=1，则要不断向上找pre
+	
+	// [1, n]
+	void GetMatchPos(char s[], int n, vector<int> pos[], int _len[]){
+		int o = 0;
+		for(int i=1; i<=n; i++){
+			// 根据上面的构造，理论上不用跳 fail
+			while(o && ch[o][s[i]-'a'] == 0)
+				o = f[o];
+			o = ch[o][s[i]-'a'];
+			int p = o;
+			// 即使不是接受态，往前跳几下就可能是接受态了
+			if(!isEnd[o] && pre[o]) p = pre[o];
+			while(isEnd[p]){
+				int id = isEnd[p];
+				int len = _len[id];
+				pos[len].push_back(i - len + 1);
+				p = pre[p];
+			}
+		}
+	}
 };
 
 // FIXME: 没用过，需要看看会不会出锅
@@ -879,7 +901,7 @@ namespace FWT{
 					w[i+j+len] = x-y;
 					if(op == -1){
 						w[i+j] = 1LL * w[i+j] * INV2 % MOD;
-						w[i+j] = 1LL * w[i+j] * INV2 % MOD;
+						w[i+j+len] = 1LL * w[i+j+len] * INV2 % MOD;
 					}
 				}
 	}
