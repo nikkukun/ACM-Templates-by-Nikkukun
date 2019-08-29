@@ -117,64 +117,119 @@ struct EulerLoop{
 	}
 };
 
+// REVIEW: https://www.luogu.org/problem/P2341
+namespace StronglyConnectedComponent{
+	vector<int> a[N];
+	// sccId, sccSiz
+	int sid[N], siz[N];
+
+	int tms;
+	int low[N], dfn[N], stk[N];
+
+	// Tarjan 会遍历父边，不需要 continue 掉
+	void Tarjan(int u){
+		dfn[u] = low[u] = ++tms;
+		stk[++stk[0]] = u;
+		for(auto v: a[u]){
+			if(!dfn[v]){
+				Tarjan(v);
+				low[u] = min(low[u], low[v]);
+			}else if(!sid[v]){
+				low[u] = min(low[u], dfn[v]);
+			}
+		}
+		if(dfn[u] == low[u]){
+			int id = ++sid[0];
+			int &o = stk[0];
+			while(stk[o] != u){
+				sid[stk[o]] = id;
+				o--; siz[id]++;
+			}
+			sid[stk[o]] = id; o--; siz[id]++;
+		}
+	}
+
+	void Solve(){
+		for(int i=1; i<=n; i++)
+			if(!sid[i])
+				Tarjan(i);
+		// Process();
+		// 连边时，连的是 (sid[u], sid[v])
+	}
+};
+
 // =============== 网络流 / Network Flow ===============
 
 namespace _MaxFlow{
 	struct Dinic{
-		struct Edge{int v,res;};
+		struct Edge{
+			int v, res;
+		};
 		vector<Edge> edg;
-		vector<int> a[N*2];
-		int st,ed;
+		vector<int> a[V];
+		int st, ed;
 
-		void AddEdge(int u,int v,int cap){
-			edg.push_back((Edge){v,cap});
-			edg.push_back((Edge){u,0});
-			int siz=edg.size();
-			a[u].push_back(siz-2);
-			a[v].push_back(siz-1);
+		void Clear(){
+			edg.clear();
+			for(int i=0; i<V; i++)
+				a[i].clear();
 		}
 
-		int dep[N*2];
+		void AddEdge(int u, int v, int cap){
+			edg.push_back((Edge){v, cap});
+			edg.push_back((Edge){u, 0});
+			int siz = edg.size();
+			a[u].push_back(siz - 2);
+			a[v].push_back(siz - 1);
+		}
+
+		int dep[V];
 		bool BFS(){
-			memset(dep,-1,sizeof(dep));
-			dep[st]=0; 
+			memset(dep, -1, sizeof(dep));
+			dep[st] = 0;
 			queue<int> q; q.push(st);
 
 			while(!q.empty()){
-				int u=q.front(); q.pop();
-				for(int i=0;i<a[u].size();i++){
-					Edge& e=edg[a[u][i]];
-					if(dep[e.v]==-1&&e.res>0){
-						q.push(e.v), dep[e.v]=dep[u]+1;
+				int u = q.front(); q.pop();
+				for(auto i: a[u]){
+					auto e = edg[i];
+					if(dep[e.v] == -1 && e.res > 0){
+						q.push(e.v);
+						dep[e.v] = dep[u] + 1;
 					}
 				}
 			}
 
-			return dep[ed]!=-1;
+			return dep[ed] != -1;
 		}
 
-		int cur[N*2];
-		int DFS(int u,int minF){
-			if(u==ed||minF==0)return minF;
+		int cur[V];
+		double DFS(int u, int minF){
+			if(u == ed || minF == 0)
+				return minF;
 
-			int tmpF,sumF=0;
-			for(int& i=cur[u];i<a[u].size();i++){
-				Edge& e=edg[a[u][i]];
-				if( dep[e.v]==dep[u]+1 && (tmpF=DFS(e.v,min(e.res,minF)))>0 ){
-					e.res-=tmpF; edg[a[u][i]^1].res+=tmpF;
-					sumF+=tmpF; minF-=tmpF;
+			int sumF = 0;
+			// 传 cur 引用
+			for(int &i=cur[u]; i<a[u].size(); i++){
+				// 传 edg 引用
+				auto &e = edg[a[u][i]];
+				if(dep[e.v] == dep[u]+1){
+					int tmpF = DFS(e.v, min(e.res, minF));
+					if(tmpF <= 0) continue;
+					e.res -= tmpF; edg[a[u][i]^1].res += tmpF;
+					sumF += tmpF; minF -= tmpF;
 				}
-				if(minF==0)break;
+				if(minF == 0) break;
 			}
 
 			return sumF;
 		}
 
 		int MaxFlow(){
-			int ret=0;
+			int ret = 0;
 			while(BFS()){
-				memset(cur,0,sizeof(cur));
-				ret+=DFS(st,INF);
+				memset(cur, 0, sizeof(cur));
+				ret += DFS(st, INF);
 			}
 			return ret;
 		}
@@ -244,27 +299,25 @@ namespace _MaxFlowMinCost{
 
 namespace _Hungary{
 	int g[N][N];
-
 	bool vst[N]; int lnk[N];
 
 	bool DFS(int u,int n){
-		for(int v=1;v<=n;v++)
+		for(int v=1; v<=n; v++)
 			if(g[u][v] && !vst[v]){
-				vst[v]=1;
-				if(!lnk[v] || DFS(lnk[v],n)){
-					lnk[v]=u;
+				vst[v] = 1;
+				if(!lnk[v] || DFS(lnk[v], n)){
+					lnk[v] = u;
 					return 1;
 				}
 			}
-
 		return 0;
 	}
 
 	int Match(int n){
-		int ans=0;
-		for(int i=1;i<=n;i++){
-			memset(vst,0,sizeof(vst));
-			if(DFS(i,n))ans++;
+		int ans = 0;
+		for(int i=1; i<=n; i++){
+			memset(vst, 0, sizeof(vst));
+			if(DFS(i, n)) ans++;
 		}
 		return ans;
 	}
