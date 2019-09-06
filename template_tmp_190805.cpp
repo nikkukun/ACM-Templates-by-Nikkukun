@@ -65,6 +65,42 @@ namespace _TwoSAT{
 	}
 };
 
+// bitset 优化传递闭包
+// REVIEW: https://www.luogu.org/problem/P4306
+struct _TransitiveClosure{
+	void Floyd(int n){
+		bitset<N> f[N];
+		for(int k=1; k<=n; k++)
+			for(int i=1; i<=n; i++)
+				if(f[i][k]) f[i] |= f[k];
+	}
+};
+
+// REVIEW: https://www.luogu.org/problem/P4779
+struct _Dijkstra{
+	int dis[N];
+	void Dijkstra(int st){
+		memset(dis, 0x3f, sizeof dis);
+		dis[st] = 0;
+		priority_queue<pint, vector<pint>, greater<pint> > q;
+		q.push(make_pair(0, st));
+
+		static bool vst[N];
+		while(!q.empty()){
+			int u = q.top().second; q.pop();
+			if(vst[u]) continue;
+			vst[u] = 1;
+			for(auto e: a[u]){
+				int v = e.v, w = e.w;
+				if(dis[v] > dis[u] + w){
+					dis[v] = dis[u] + w;
+					q.push(make_pair(dis[v], v));
+				}
+			}
+		}
+	}
+};
+
 // 邻接矩阵形式
 // FIXME: 修改成邻接表形式
 // 栈中是倒序的
@@ -784,45 +820,38 @@ namespace _FFT{
 // FIXME: 没有预处理rot
 // NOTE: 中途可能会变成负数，最后需要模一下
 namespace _NTT{
-	const int MOD=998244353, G=3;
+	const int MOD = 998244353, G = 3;
 
-	ll QPow(ll bas,int t){
-		ll ret=1;
-		for(;t;t>>=1,bas=bas*bas%MOD)
-			if(t&1)ret=ret*bas%MOD;
-		return ret;
-	}
+	ll QPow(ll bas, int t);
+	ll Inv(ll x);
 
-	ll Inv(ll x){
-		return QPow(x,MOD-2);
-	}
-
-	void NTT(int w[],int n,int op){
+	void NTT(int w[], int n, int op){
 		static int r[N];
 
-		for(int i=0;i<n;i++)
-			r[i]=(r[i>>1]>>1)|((i&1)?n>>1:0);
-		for(int i=0;i<n;i++)
-			if(i<r[i])swap(w[i],w[r[i]]);
+		for(int i=0; i<n; i++)
+			r[i] = (r[i>>1] >> 1) | ((i&1) ? n>>1 : 0);
+		for(int i=0; i<n; i++)
+			if(i < r[i]) swap(w[i], w[r[i]]);
 			
-		for(int len=2;len<=n;len<<=1){
-			int sub=len>>1;
-			ll det=QPow(G,MOD-1+op*(MOD-1)/len);
-			for(int l=0;l<n;l+=len){
-				ll rot=1;
-				for(int i=l;i<l+sub;i++){
-					ll x=w[i], y=rot*w[i+sub]%MOD;
-					w[i]=(x+y)%MOD;
-					w[i+sub]=(x-y)%MOD;		//maybe minus
-					rot=rot*det%MOD;
+		for(int len=2; len<=n; len<<=1){
+			int sub = len>>1;
+			ll det = QPow(3, MOD-1 + op * (MOD-1) / len);
+			for(int l=0; l<n; l+=len){
+				ll rot = 1;
+				for(int i=l; i<l+sub; i++){
+					ll x = w[i];
+					ll y = rot * w[i+sub] % MOD;
+					w[i] = (x + y) % MOD;
+					w[i+sub] = (x - y) % MOD;		// maybe minus
+					rot = rot * det % MOD;
 				}
 			}
 		}
 		
-		if(op==1)return;
-		ll inv=Inv(n);
-		for(int i=0;i<n;i++)
-			w[i]=inv*w[i]%MOD;
+		if(op == 1) return;
+		ll inv = Inv(n);
+		for(int i=0; i<n; i++)
+			w[i] = inv * w[i] % MOD;
 	}
 };
 
@@ -913,6 +942,7 @@ namespace _MTT_4{
 
 		FFT(c,len,-1); FFT(d,len,-1);
 
+		// 这里应该是 <= n
 		for(int i=0;i<n;i++){
 			ll w = 0;
 			w += ll(round(c[i].x/len))%MOD*D*D;
@@ -944,19 +974,22 @@ namespace FWT{
 					w[i+j] += w[i+j+len]*op;
 	}
 
+	// 如果 w 是 ull，则应该在最后再除 n 
+	// 因为运算过程不保证逆存在
+	// 事实上我觉得只要 w 不是 double，都需要最后除
+	// x+y x-y 是奇数什么的非常有可能吧…
 	const int INV2 = 929292929;
 	void FWT_XOR(int w[], int n, int op){
-		for(int len=1; len<n; len<<=1)
-			for(int i=0; i<n; i+=len*2)
-				for(int j=0; j<len; j++){
-					int x = w[i+j], y = w[i+j+len];
+		for(int l=1; l<n; l<<=1)
+			for(int i=0; i<n; i+=l*2)
+				for(int j=0; j<l; j++){
+					int x = w[i+j], y = w[i+j+l];
 					w[i+j] = x+y;
-					w[i+j+len] = x-y;
-					if(op == -1){
-						w[i+j] = 1LL * w[i+j] * INV2 % MOD;
-						w[i+j+len] = 1LL * w[i+j+len] * INV2 % MOD;
-					}
+					w[i+j+l] = x-y;
 				}
+		if(op == 1) return;
+		for(int i=0; i<n; i++) w[i] /= n;
+		// for(int i=0; i<n; i++) w[i] *= Inv(n);
 	}
 };
 
@@ -1409,6 +1442,32 @@ namespace Euclidean{
 };
 
 // =============== 筛法 / Sieve Algorithm ===============
+
+namespace LinearSieve{
+	bool notPri[N]; int pri[N];
+	int phi[N];
+	
+	void Phi(){
+		phi[1] = 1;
+		for(int i=2; i<N; i++){
+			if(!notPri[i]){
+				pri[++pri[0]] = i;
+				phi[i] = i-1;
+			}
+			for(int j=1; j<=pri[0]; j++){
+				int p = pri[j];
+				if(i*p >= N) break;
+				notPri[i*p] = 1;
+				if(i % p){
+					phi[i*p] = phi[i] * phi[p];
+				}else{
+					phi[i*p] = p * phi[i];
+					break;
+				}
+			}
+		}
+	}
+};
 
 // DEBUG:
 namespace DuSieve{
