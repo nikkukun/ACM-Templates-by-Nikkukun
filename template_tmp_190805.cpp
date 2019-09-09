@@ -748,19 +748,19 @@ namespace _FFT{
 
 	void FFT(Complex w[],int n,int op){
 		static int r[M];
-		for(int i=0;i<n;i++)
-			r[i]=(r[i>>1]>>1)|((i&1)?n>>1:0);
-		for(int i=0;i<n;i++)
-			if(i<r[i])swap(w[i],w[r[i]]);
+		for(int i=0; i<n; i++)
+			r[i] = (r[i>>1]>>1) | ((i&1)?n>>1:0);
+		for(int i=0; i<n; i++)
+			if(i < r[i]) swap(w[i], w[r[i]]);
 			
-		for(int len=2;len<=n;len<<=1){
-			int sub=len>>1;
-			for(int l=0;l<n;l+=len){
-				for(int i=l;i<l+sub;i++){
-					Complex &r=rot[sub+i-l];
-					Complex x=w[i];
-					Complex y=(Complex){r.x,op*r.y}*w[i+sub];
-					w[i]=x+y; w[i+sub]=x-y;
+		for(int len=2; len<=n; len<<=1){
+			int sub = len>>1;
+			for(int l=0; l<n; l+=len){
+				for(int i=l; i<l+sub; i++){
+					Complex &_r = rot[sub+i-l];
+					Complex x = w[i];
+					Complex y = (Complex){_r.x,op*_r.y} * w[i+sub];
+					w[i] = x+y; w[i+sub] = x-y;
 				}
 			}
 		}
@@ -771,7 +771,7 @@ namespace _FFT{
 	// FIXME: 修改成长度而不是最高次项
 	// TODO: 测试能不能正常运行
 	void Cal(int f[],int g[],int n,int ans[]){
-		static Complex a[N],b[N];
+		static Complex a[N], b[N];
 
 		int len=1;
 		for(;len<=(n<<1);len<<=1);
@@ -961,29 +961,29 @@ namespace FWT{
 	// 可能需要取模
 
 	void FWT_OR(int w[], int n, int op){
-		for(int len=1; len<n; len<<=1)
-			for(int i=0; i<n; i+=len*2)
-				for(int j=0; j<len; j++)
-					w[i+j+len] += w[i+j]*op;
+		for(int l=1; l<n; l<<=1)
+			for(int i=0; i<n; i+=l*2)
+				for(int j=0; j<l; j++)
+					w[i+j+l] += w[i+j] * op;
 	}
 
 	void FWT_AND(int w[], int n, int op){
-		for(int len=1; len<n; len<<=1)
-			for(int i=0; i<n; i+=len*2)
-				for(int j=0; j<len; j++)
-					w[i+j] += w[i+j+len]*op;
+		for(int l=1; l<n; l<<=1)
+			for(int i=0; i<n; i+=l*2)
+				for(int j=0; j<l; j++)
+					w[i+j] += w[i+j+l] * op;
 	}
 
 	// 如果 w 是 ull，则应该在最后再除 n 
 	// 因为运算过程不保证逆存在
 	// 事实上我觉得只要 w 不是 double，都需要最后除
 	// x+y x-y 是奇数什么的非常有可能吧…
-	const int INV2 = 929292929;
 	void FWT_XOR(int w[], int n, int op){
 		for(int l=1; l<n; l<<=1)
 			for(int i=0; i<n; i+=l*2)
 				for(int j=0; j<l; j++){
-					int x = w[i+j], y = w[i+j+l];
+					// 如果 w 是 ll，则这里也要注意类型
+					auto x = w[i+j], y = w[i+j+l];
 					w[i+j] = x+y;
 					w[i+j+l] = x-y;
 				}
@@ -1078,6 +1078,91 @@ namespace _PolyDiv{
 
 		for(int i=0;i<m;i++)
 			mod[i]=(a[i]-mod[i]+MOD)%MOD;
+	}
+};
+
+// =============== 数据结构 / Data Structure ===============
+
+// REVIEW: https://www.luogu.org/problem/P2617
+namespace _DynamicsSegmentTree{
+	const int N = 1e5 + 5;
+	// 值域 [1, V]，区间 [1, L]，操作 Q 次
+	// 空间复杂度 Q * log V * log L
+	const int M = 18 * 18 * N;
+
+	struct DySegTree{
+		int lch[M], rch[M], t[M];
+		int rt[N];
+		int tms;
+		
+		DySegTree(){
+			memset(rt, 0, sizeof(rt));
+			lch[0] = rch[0] = t[0] = 0;
+			tms = 0;
+		}
+		void NewNode(int &o){
+			o = ++tms;
+			lch[o] = rch[o] = t[o] = 0;
+		}
+		void Maintain(int o){
+			t[o] = 0;
+			if(lch[o]) t[o] += t[lch[o]];
+			if(rch[o]) t[o] += t[rch[o]];
+		}
+		void Update(int &o, int L, int R, int pos, int v){
+			if(!o) NewNode(o);
+			if(L == R){
+				t[o] += v;
+				return;
+			}
+			int M = (L+R) / 2;
+			if(pos <= M) Update(lch[o], L, M, pos, v);
+			if(M+1 <= pos) Update(rch[o], M+1, R, pos, v);
+			Maintain(o);
+		}
+	};
+	DySegTree seg;
+
+	struct BITree{
+		int Lowbit(int x){
+			return x & -x;
+		}
+		void Add(int n, int x, int v, int det){
+			for(; x<=n; x+=Lowbit(x))
+				seg.Update(seg.rt[x], 1, 2e5, v, det);
+		}
+		void Query(int x, vector<int> &pos){
+			for(; x; x-=Lowbit(x))
+				pos.push_back(seg.rt[x]);
+		}
+	};
+	BITree bt;
+
+	int BSearch(int qL, int qR, int k){
+		vector<int> posL, posR;
+		bt.Query(qR, posR);
+		bt.Query(qL-1, posL);
+
+		int L = 1, R = 2e5;
+		while(L < R){
+			int M = (L+R) / 2;
+
+			int tmp = 0;
+			for(auto o: posR) tmp += seg.t[seg.lch[o]];
+			for(auto o: posL) tmp -= seg.t[seg.lch[o]];
+
+			if(tmp < k){
+				L = M+1;
+				k -= tmp;
+				for(auto &o: posR) o = seg.rch[o];
+				for(auto &o: posL) o = seg.rch[o];
+			}else{
+				R = M;
+				for(auto &o: posR) o = seg.lch[o];
+				for(auto &o: posL) o = seg.lch[o];
+			}
+		}
+		return L;
 	}
 };
 
@@ -1603,39 +1688,87 @@ namespace BSGS{
 	}
 };
 
-// DEBUG:
+// REVIEW: https://www.luogu.org/problem/P4777
 namespace ExGCD{
-	void ExtendGCD(int a,int b,int &x,int &y,int &g){
-		if(!b)x=1,y=0,g=a;
-		else ExtendGCD(b,a%b,y,x,g),y-=x*(a/b);
+	void ExGCD(ll a, ll b, ll &x, ll &y, ll &g){
+		if(!b) x = 1, y = 0, g = a;
+		else ExGCD(b, a%b, y, x, g), y -= x * (a/b);
 	}
-	// ax+by=c
-	// 定义b'=b/g
-	// 解集：x = x0+k*b', y = y0-k*a'
-	// 最小非负解：x+ = (x0 % b'+ b') % (b'c')
-	// 为啥mod b'c'，b'c'>=b'不是吗，mod b'似乎就行
+	// case 1:
+	// ax + by = (a, b)
+	// x = x0 + k * ([a, b] / a)
+	//   = x0 + k * (b / g)
+	// y = y0 - k * ([a, b] / b)
+	//   = y0 - k * (a / g)
+
+	// case 2:
+	// ax + by = p * (a, b)
+	// 给最后的解集整体乘 p 即可
+
+	// case 3:
+	// ax - by = (a, b)
+	// 给 y 的解集取个相反数即可
+
+	/*
+	# calc ax+by = gcd(a, b) return x
+	def ExGCD(r0, r1):
+		x0, y0 = 1, 0
+		x1, y1 = 0, 1
+		x, y = r0, r1
+		r = r0 % r1
+		q = r0 // r1
+		while r:
+			x, y = x0 - q * x1, y0 - q * y1
+			x0, y0 = x1, y1
+			x1, y1 = x, y
+			r0 = r1
+			r1 = r
+			r = r0 % r1
+			q = r0 // r1
+		return x
+	*/
 };
 
-// DEBUG:
+// REVIEW: https://www.luogu.org/problem/P4777
+
+// 1. 合并过程中将 c 转到正数上
+// 相当于我们先钦定了一个 det y 的值
+// 这样子并不会影响 x 值的求解，但是算 y 时会有影响
+// 需要这样处理是因为 QMul 不能传入一个负数计算
+// 2. 先计算 p1/g 避免溢出
 namespace ExCRT{
-	ll ExtendCRT(){
-		ll a0,p0,a1,p1; bool flag=1;
-		cin>>p0>>a0;
-		for(int i=2;i<=n;i++){
-			ll x,y,g,c;
-			cin>>p1>>a1;
-			if(flag){
-				ExtendGCD(p0,p1,x,y,g);
-				c=a1-a0;
-				if(c%g){flag=0;continue;}
-				x=x*(c/g)%(p1/g);
-				a0+=x*p0;p0=p0*p1/g;
-				a0%=p0;
-			}
+	ll ExCRT(ll a[], ll p[], int n){
+		ll a0 = a[1], p0 = p[1];
+		for(int i=2; i<=n; i++){
+			ll x, y, g, c;
+			ll a1 = a[i], p1 = p[i];
+			ExGCD(p0, p1, x, y, g);
+			c = ((a1 - a0) % p1 + p1) % p1;
+			if(c % g) return -1;
+			x = QMul(x, c/g, p1/g);
+			a0 += x * p0;
+			p0 = p0 * (p1/g);
+			a0 %= p0;
 		}
-		if(flag)return (a0%p0+p0)%p0;
-		else return -1;
+		return (a0 % p0 + p0) % p0;
 	}
+
+	/*
+	def ExCRT(a, p, n):
+		a0, p0 = a[0], p[0]
+		for i in range(1, n):
+			a1, p1 = a[i], p[i]
+			g = GCD(p0, p1)
+			x = ExGCD(p0, p1)
+			c = a1 - a0
+			if c % g != 0:
+				return -1
+			x = x * (c // g) % (p1 // g)
+			a0 = a0 + x * p0
+			p0 = p0 * p1 // g
+			a0 = a0 % p0
+		return (a0 % p0 + p0) % p0
+	*/
 };
 
 // =============== 线性代数 / Linear Algebra ===============
@@ -1831,33 +1964,38 @@ struct Bignum{
 	}
 };
 
+// REVIEW: https://www.luogu.org/problem/P1001
 namespace _FastIO{
-	template <typename T> inline T read(){
-		T x=0, f=1; char ch=0;
-		for(;!isdigit(ch);ch=getchar())
-			if(ch=='-')f=-1;
-		for(;isdigit(ch);ch=getchar())
-			x=x*10+ch-'0';
-		return x*s;
+	template<typename T> inline T read(){
+		T x = 0, f = 1; char ch = 0;
+		for(; !isdigit(ch); ch = getchar())
+			if(ch == '-') f = -1;
+		for(; isdigit(ch); ch = getchar())
+			x = x*10 + ch-'0';
+		return f * x;
 	}
-	const int BUF=64+5;
-	template <typename T> inline void write(T x){
-		static int s[BUF]; int t=0;
+	const int BUF = 64+5;
+	template<typename T> inline void write(T x){
+		static int s[BUF]; int t = 0;
 		do{
-			s[t++]=x%10, x/=10;
+			s[t++] = x % 10;
+			x /= 10;
 		}while(x);
-		while(t)putchar(s[--t]+'0');
+		while(t) putchar(s[--t] + '0');
 	}
 };
 
 // DEBUG:
 // 能用__int128的时候就快得一批
+// 一个写起来比较像快速幂形式的龟速乘
 namespace QMul{
-	ll QMul(ll a,ll b){
-		if(a>b)swap(a,b);
-		ll ret=0;
-		for(;b;b>>=1,(a<<=1)%=p)
-			if(b&1)(ret+=a)%=p;
+	ll QMul(ll bas, ll t, ll MOD){
+		ll ret = 0;
+		while(t){
+			if(t & 1) ret = (ret + bas) % MOD;
+			bas = (bas + bas) % MOD;
+			t >>= 1;
+		}
 		return ret;
 	}
 };
