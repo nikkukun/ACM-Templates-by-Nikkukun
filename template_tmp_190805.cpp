@@ -739,6 +739,7 @@ struct Complex{
 	}
 };
 
+// DEBUG: need further modification from 2019 Nanchang ICPC netcontest D
 namespace _FFT{
 	// M需要开到比N大的2^n的两倍
 	const int M=(1<<(__lg(N-1)+1))*2+5;
@@ -1166,65 +1167,103 @@ namespace _DynamicsSegmentTree{
 	}
 };
 
-// =============== 树 / Tree Algorithm ===============
+// REVIEW: https://www.luogu.org/problem/P3369
+namespace _ScapegoatTree{
+	struct SgTree{
+		int rt, tms;
+		int v[N], w[N];
+		int lch[N], rch[N];
+		int siz[N], sum[N];		// sum: 有效的节点数
+		int seq[N];
+		constexpr static const double ALP = 0.75;
 
-// DEBUG:
-namespace HeavyLightDecomposition{
-	SegTree t;
-	int dep[N],siz[N],pa[N],son[N],top[N],idx[N];
-	int nIdx;
-
-	void Build(){
-		nIdx=dep[0]=siz[0]=son[0]=0;
-		DFS1(); DFS2();
-	}
-	void DFS1(int u=1,int pa=0){
-		dep[u]=dep[HLDcp::pa[u]=pa]+1;
-		siz[u]=1;son[u]=0;
-		for(int i=0;i<a[u].size();i++){
-			int v=a[u][i];
-			if(v==pa)continue;
-			DFS1(v,u);
-			if(siz[v]>siz[son[u]])son[u]=v;
-			siz[u]+=siz[v];
+		SgTree(){
+			rt = 0; tms = 0;
+			v[0] = w[0] = 0;
+			lch[0] = rch[0] = 0;
+			siz[0] = sum[0] = 0;
+		};
+		void NewNode(int &o, int _v){
+			o = ++tms;
+			v[o] = _v; w[o] = 1;
+			lch[o] = rch[o] = 0;
+			siz[o] = sum[o] = 1;
 		}
-	}
-	void DFS2(int u=1,int pa=0){
-		idx[u]=++nIdx;top[u]=u;
-		if(son[pa]==u)top[u]=top[pa];
-		if(son[u])DFS2(son[u],u);
-		for(int i=0;i<a[u].size();i++){
-			int v=a[u][i];
-			if(v==pa||v==son[u])continue;
-			DFS2(v,u);
+		void Maintain(int o){
+			siz[o] = siz[lch[o]] + siz[rch[o]] + w[o];
+			sum[o] = sum[lch[o]] + sum[rch[o]] + w[o];
 		}
-	}
-	void Add(int u){
-		while(top[u]!=0){
-			t.Update(idx[top[u]],idx[u],1);
-			u=pa[top[u]];
+		bool Check(int o){
+			if(!w[o]) return 0;
+			if(siz[lch[o]] >= ALP * siz[o] + 5) return 1;
+			if(siz[rch[o]] >= ALP * siz[o] + 5) return 1;
+			if(sum[o] <= ALP * siz[o]) return 1;
+			return 0;
 		}
-	}
-	void Delete(int u){
-		t.Update(idx[u],idx[u]+siz[u]-1,0);
-	}
-	// 对边操作，每个点代表(u,pa[u])这条边
-	void Modify(int u,int v,int w){
-		while(top[u]!=top[v]){
-			if(dep[top[u]]<dep[top[v]])swap(u,v);
-			t.Modify(idx[top[u]],idx[u],1,w,1,nIdx);
-			u=pa[top[u]];
+		void GetSeq(int o){
+			if(!o) return;
+			GetSeq(lch[o]);
+			if(w[o]) seq[++seq[0]] = o;
+			GetSeq(rch[o]);
 		}
-		// 节点相同则退出
-		if(u==v)return;
-		if(dep[u]>dep[v])swap(u,v);
-		t.Modify(idx[u]+1,idx[v],1,w,1,nIdx);
-	}
+		int Rebuild(int L, int R){
+			if(L > R) return 0;
+			int M = (L+R) / 2;
+			int o = seq[M];
+			lch[o] = Rebuild(L, M-1);
+			rch[o] = Rebuild(M+1, R);
+			Maintain(o);
+			return o;
+		}
+		// Rebuild Main
+		void Rebuild(int &o){
+			seq[0] = 0;
+			GetSeq(o);
+			o = Rebuild(1, seq[0]);
+		}
+		
+		void Insert(int &o, int _v){
+			if(!o) NewNode(o, _v);
+			else{
+				if(_v == v[o]) w[o]++;
+				else if(_v < v[o]) Insert(lch[o], _v);
+				else Insert(rch[o], _v);
+				Maintain(o);
+				if(Check(o)) Rebuild(o);
+			}
+		}
+		void Erase(int &o, int _v){
+			if(!o) return;
+			else{
+				if(_v == v[o]) w[o]--;
+				else if(_v < v[o]) Erase(lch[o], _v);
+				else Erase(rch[o], _v);
+				Maintain(o);
+				if(Check(o)) Rebuild(o);
+				// keep siz after operation
+				if(_v == v[o]) siz[o]++;
+			}
+		}
+		int Kth(int &o, int k){
+			if(k < 0 || k > sum[o]) return -1;
+			if(k <= sum[lch[o]]) return Kth(lch[o], k);
+			else if(k <= sum[lch[o]] + w[o]) return v[o];
+			else return Kth(rch[o], k - sum[lch[o]] - w[o]);
+		}
+		int LBound(int &o, int _v){
+			if(!o) return 1;
+			else{
+				if(_v == v[o]) return sum[lch[o]] + 1;
+				else if(_v < v[o]) return LBound(lch[o], _v);
+				else return sum[lch[o]] + w[o] + LBound(rch[o], _v);
+			}
+		}
+	};
 };
 
 // DEBUG:
 // FIXME: 没有建树过程
-namespace FHQTreap{
+namespace _FHQTreap{
 	struct Node{
 		int v,w,siz,lazy; ll sum;
 		Node *lch,*rch;
@@ -1318,6 +1357,62 @@ namespace FHQTreap{
 			return ret;
 		}
 	};
+};
+
+// =============== 树 / Tree Algorithm ===============
+
+// DEBUG:
+namespace HeavyLightDecomposition{
+	SegTree t;
+	int dep[N],siz[N],pa[N],son[N],top[N],idx[N];
+	int nIdx;
+
+	void Build(){
+		nIdx=dep[0]=siz[0]=son[0]=0;
+		DFS1(); DFS2();
+	}
+	void DFS1(int u=1,int pa=0){
+		dep[u]=dep[HLDcp::pa[u]=pa]+1;
+		siz[u]=1;son[u]=0;
+		for(int i=0;i<a[u].size();i++){
+			int v=a[u][i];
+			if(v==pa)continue;
+			DFS1(v,u);
+			if(siz[v]>siz[son[u]])son[u]=v;
+			siz[u]+=siz[v];
+		}
+	}
+	void DFS2(int u=1,int pa=0){
+		idx[u]=++nIdx;top[u]=u;
+		if(son[pa]==u)top[u]=top[pa];
+		if(son[u])DFS2(son[u],u);
+		for(int i=0;i<a[u].size();i++){
+			int v=a[u][i];
+			if(v==pa||v==son[u])continue;
+			DFS2(v,u);
+		}
+	}
+	void Add(int u){
+		while(top[u]!=0){
+			t.Update(idx[top[u]],idx[u],1);
+			u=pa[top[u]];
+		}
+	}
+	void Delete(int u){
+		t.Update(idx[u],idx[u]+siz[u]-1,0);
+	}
+	// 对边操作，每个点代表(u,pa[u])这条边
+	void Modify(int u,int v,int w){
+		while(top[u]!=top[v]){
+			if(dep[top[u]]<dep[top[v]])swap(u,v);
+			t.Modify(idx[top[u]],idx[u],1,w,1,nIdx);
+			u=pa[top[u]];
+		}
+		// 节点相同则退出
+		if(u==v)return;
+		if(dep[u]>dep[v])swap(u,v);
+		t.Modify(idx[u]+1,idx[v],1,w,1,nIdx);
+	}
 };
 
 // DEBUG:
@@ -1438,18 +1533,18 @@ namespace DCOnTree{
 // DEBUG:
 namespace MillerRabin{
 	bool MR(ll p){
-		if(p==2)return 1;
-		if(p<=1 || !(p&1))return 0;
-		if(p==2152302898747LL)return 0;
-		if(p==3215031751)return 0;
+		if(p == 2) return 1;
+		if(p <= 1 || !(p & 1)) return 0;
+		if(p == 2152302898747LL) return 0;
+		if(p == 3215031751) return 0;
 
 		mt19937_64 rng(time(0));
-		for(int i=0;i<UPP;i++){
-			ll a=rng()%(p-2)+2;
+		for(int i=0; i<UPP; i++){
+			ll a = rng() % (p-2) + 2;
 			for(ll k=p-1; !(k&1); k>>=1){
-				ll t=QPow(a,k,p);
-				if(t!=1 && t!=p-1)return 0;
-				if(t==p-1)break;
+				ll t = QPowMod(a, k, p);
+				if(t != 1 && t != p-1) return 0;
+				if(t == p-1) break;
 			}
 		}
 		return 1;
