@@ -16,6 +16,24 @@ typedef __int128 i128;
 	991145149
 */
 
+/*
+	Table of Contents
+
+	图论 / Graph Theroy
+	网络流 / Network Flow
+	字符串 / String Algorithm
+	FFT / Fast Fourier Transformation
+	多项式 / Polynomial
+	数据结构 / Data Structure
+	树 / Tree Algorithm
+	数论 / Number Theory
+	筛法 / Sieve Algorithm
+	离散数学 / Discrete Maths
+	线性代数 / Linear Algebra
+	计算几何 / Computational Geometry
+	杂项 / Other
+*/
+
 const int N = 299213;
 const int INF = 0x3f3f3f3f;
 const ll INF_LL = 0x3f3f3f3f3f3f3f3f;
@@ -23,43 +41,53 @@ const int MOD = 929292929;
 
 // =============== 图论 / Graph Theroy ===============
 
-namespace _TwoSAT{
-	// 两倍空间
+// REVIEW: https://codeforces.com/contest/1215/problem/F
+namespace TwoSAT{
 	vector<int> a[N*2];
-	stack<int> s; bool mark[N*2];
-	
-	// x==valX || y==valY
-	void AddClause(int x,bool vx,int y,bool vy){
-		x=x*2+vx, y=y*2+vy;
+	bool mark[N*2];
+	stack<int> stk;
+
+	// x == valx || y == valy
+	// 即限制为：x, y 不能同时为 !vx, !vy
+	void AddClause(int x, int y, int vx, int vy){
+		x = x*2 + vx, y = y*2 + vy;
 		a[x^1].push_back(y);
 		a[y^1].push_back(x);
 	}
+	// x = y: (0, 1), (1, 0)
+	// x != y: (0, 0), (1, 1)
+	// x = y = 0: (0, 1), (1, 0), (0, 0)
+	// x = y = 1: (0, 1), (1, 0), (1, 1)
 
+	// 根据需要调整初始化范围
 	void Init(){
-		for(int i=0;i<N*2;i++)
+		for(int i=0; i<N*2; i++)
 			a[i].clear();
-		s=stack<int>();
-		memset(mark,0,sizeof(mark));
+		stk = stack<int>();
+		memset(mark, 0, sizeof(mark));
 	}
 
 	bool DFS(int u){
-		if(mark[u^1])return 0;
-		if(mark[u])return 1;
-		s.push(u); mark[u]=1;
-		for(int i=0;i<a[u].size();i++)
-			if(!DFS(a[u][i]))return 0;
+		if(mark[u^1]) return 0;
+		if(mark[u]) return 1;
+		stk.push(u); mark[u] = 1;
+		for(auto v: a[u])
+			if(!DFS(v)) return 0;
 		return 1;
 	}
 
-	// 下标从0开始
+	// 变量下标：[1, n] -> 传入的 n 就是变量个数
+	// 实际映射：[2, 2n+1]
 	bool Solve(int n){
-		for(int i=0;i<n*2;i++)
-			if(!mark[i]&&!mark[i^1])
+		for(int i=2; i<=n*2+1; i++)
+			if(!mark[i] && !mark[i^1])
 				if(!DFS(i)){
-					while(s.top()!=i)
-						mark[s.top()]=0, s.pop();
-					mark[i]=0, s.pop();
-					if(!DFS(i^1))return 0;
+					while(stk.top() != i){
+						mark[stk.top()] = 0;
+						stk.pop();
+					}
+					mark[i] = 0; stk.pop();
+					if(!DFS(i^1)) return 0;
 				}
 		return 1;
 	}
@@ -191,6 +219,28 @@ namespace StronglyConnectedComponent{
 				Tarjan(i);
 		// Process();
 		// 连边时，连的是 (sid[u], sid[v])
+	}
+};
+
+// REVIEW: https://codeforces.com/contest/1220/problem/E
+namespace _BiconnectedComponent{
+	bool ban[N];
+	int dfn[N], low[N];
+	int tms;
+
+	// 点双联通分量
+	// 求分量需要求出割边后，DFS 一遍
+	void Tarjan(int u, int pa){
+		dfn[u] = low[u] = ++tms;
+		for(auto v: a[u]){
+			if(v == pa) continue;
+			if(!dfn[v]){
+				Tarjan(v, u);
+				low[u] = min(low[u], low[v]);
+				// ban 的父边是一个割边
+				if(low[v] > dfn[u]) ban[v] = 1;
+			}else low[u] = min(low[u], dfn[v]);
+		}
 	}
 };
 
@@ -745,6 +795,7 @@ namespace _FFT{
 	const int M=(1<<(__lg(N-1)+1))*2+5;
 	const double PI=acos(-1.0);
 
+	// rot 可以一次先处理完的
 	Complex rot[M];
 
 	void FFT(Complex w[],int n,int op){
@@ -944,6 +995,8 @@ namespace _MTT_4{
 		FFT(c,len,-1); FFT(d,len,-1);
 
 		// 这里应该是 <= n
+		// 按情况选择，有时候只需要对 x^n 取模
+		// 但是有时候到 len 又会超出数组范围
 		for(int i=0;i<n;i++){
 			ll w = 0;
 			w += ll(round(c[i].x/len))%MOD*D*D;
@@ -953,7 +1006,6 @@ namespace _MTT_4{
 		}
 	}
 };
-
 
 // DEBUG:
 namespace FWT{
@@ -1479,51 +1531,59 @@ namespace DSUOnTree{
 	}
 };
 
-// DEBUG:
+// REVIEW: https://codeforces.com/contest/990/problem/G
 namespace DCOnTree{
+	vector<int> a[N];
 	bool vst[N];
 	int rt;
-	int siz[N],maxSiz[N]; 
 
-	void DFS4Rt(int u,int pa,int sum){
-		siz[u]=1;
-		for(auto v:a[u])
-			if(v!=pa && !vst[v]){
-				DFS4Rt(v,u,sum);
-				siz[u]+=siz[v];
-			}
-		maxSiz[u]=max(siz[u],sum-siz[u]);
-		if(maxSiz[u]>maxSiz[rt])rt=u;
+	int siz[N], son[N];
+
+	void GetRoot(int u, int pa, int sum){
+		siz[u] = 1; son[u] = 0;
+		for(auto v: a[u]){
+			if(v == pa || vst[v]) continue;
+			GetRoot(v, u, sum);
+			siz[u] += siz[v];
+			son[u] = max(son[u], siz[v]);
+		}
+		son[u] = max(son[u], sum - siz[u]);
+		if(son[u] < son[rt]) rt = u;
 	}
 
-	void DFS(int u,int pa,int dep,ll w1,ll w2){
-		for(auto v:a[u])
-			if(v!=pa && !vst[v])
-				DFS(v,u,dep+1,w1,w2);
+	void DFS(int u, int pa){
+		for(auto v: a[u])
+			if(v != pa && !vst[v])
+				DFS(v, u);
 	}
 
-	int in0[N],in1[N],out0[N],out1[N];
-
-	// 计算经过该点路径的贡献
-	void Cal(int u){
-		for(auto v:a[u]){
-			if(vst[v])continue;
-			DFS(v,u,1,w[u],0);		//remove w[u] in path w2
+	void CalRoot(int u){
+		for(auto v: a[u]){
+			if(vst[v]) continue;
+			DFS(v, u);
+			// 合并子树信息
 		}
 	}
 
-	void Solve(int u){
-		vst[u]=1; Cal(u);
-		for(auto v:a[u]){
-			if(vst[v])continue;
-			DFS4Rt(v,rt=0,siz[v]);		//init rt=0
-			Solve(v);
+	void DCT(int u){
+		vst[u] = 1; CalRoot(u);
+		for(auto v: a[u]){
+			if(vst[v]) continue;
+			int _siz = siz[v];
+			GetRoot(v, rt = 0, _siz);
+			// 重新计算 siz
+			GetRoot(rt, 0, _siz);
+			// 注意传的一定是 rt 不是 v！
+			DCT(rt);
 		}
 	}
 
 	int main(){
-		DFS4Rt(1,rt=0,n);
-		Solve(rt);
+		son[0] = INF;
+		GetRoot(1, rt = 0, n);
+		// 重新计算 siz
+		GetRoot(rt, 0, n);
+		DCT(rt);
 	}
 };
 
@@ -1649,66 +1709,73 @@ namespace LinearSieve{
 	}
 };
 
-// DEBUG:
-namespace DuSieve{
-	const int N=3e6+5;
+// REVIEW: https://www.luogu.org/problem/P4213
+namespace _DuSieve{
+	const int N = 3e6 + 5;	
 	bool notPri[N];
-	int pri[N],mu[N],phi[N];
-	ll sumMu[N],sumPhi[N];
+	int pri[N], mu[N], phi[N];
+	ll sumMu[N], sumPhi[N];
 
 	void Init(){
-		mu[1]=1; phi[1]=1;
-		for(int i=2;i<N;i++){
+		mu[1] = 1; phi[1] = 1;
+		for(int i=2; i<N; i++){
 			if(!notPri[i]){
-				pri[++pri[0]]=i;
-				phi[i]=i-1;
-				mu[i]=-1;
+				pri[++pri[0]] = i;
+				phi[i] = i-1;
+				mu[i] = -1;
 			}
-			for(int j=1;j<=pri[0] && i*pri[j]<N;j++){
-				int x=i*pri[j]; notPri[x]=1;
-				if(i%pri[j]){
-					mu[x]=-mu[i];
-					phi[x]=phi[i]*(pri[j]-1);
+			for(int j=1;j<=pri[0];j++){
+				int p = pri[j];
+				if(i*p >= N) break;
+				notPri[i*p]=1;
+				if(i % p){
+					mu[i*p] = -mu[i];
+					phi[i*p] = phi[i] * phi[p];
 				}else{
-					mu[x]=0;
-					phi[x]=phi[i]*pri[j];
+					mu[i*p] = 0;
+					phi[i*p] = phi[i] * p;
 					break;
 				}
 			}
 		}
-
-		for(int i=1;i<N;i++){
-			sumMu[i]=sumMu[i-1]+mu[i];
-			sumPhi[i]+=sumPhi[i-1]+phi[i];
+		for(int i=1; i<N; i++){
+			sumMu[i] = sumMu[i-1] + mu[i];
+			sumPhi[i] = sumPhi[i-1] + phi[i];
 		}
 	}
 
-	unordered_map<int,ll> _sumMu,_sumPhi;
+	unordered_map<int,ll> _sumMu, _sumPhi;
 
 	ll Mu(int n){
-		if(n<N)return sumMu[n];
-		if(_sumMu.count(n))return _sumMu[n];
+		if(n < N) return sumMu[n];
+		if(_sumMu.count(n)) return _sumMu[n];
 		ll ret=1;
-		// 实际上i和j可能爆int
-		for(int i=2,j;i<=n;i=j+1){
-			j=n/(n/i);
-			ret-=Mu(n/i)*(j-i+1);
+		// 实际上 i 和 j 可能爆 int
+		for(int i=2,j; i<=n; i=j+1){
+			j = n / (n/i);
+			ret -= 1LL * (j-i+1) * Mu(n/i);
 		}
-		return _sumMu[n]=ret;
+		return _sumMu[n] = ret;
 	}
 
-	// 实际上ans可能爆ll
+	// 实际上 ans 可能爆 ll
 	ll Phi(int n){
-		if(n<N)return sumPhi[n];
-		if(_sumPhi.count(n))return _sumPhi[n];
-		ll ret=1LL*(1+n)*n/2;
-		// 实际上i和j可能爆int
-		for(int i=2,j;i<=n;i=j+1){
-			j=n/(n/i);
-			ret-=Phi(n/i)*(j-i+1);
+		if(n < N) return sumPhi[n];
+		if(_sumPhi.count(n)) return _sumPhi[n];
+		ll ret = 1LL * (1+n) * n / 2;
+		// 实际上 i 和 j 可能爆 int
+		for(int i=2,j; i<=n; i=j+1){
+			j = n / (n/i);
+			ret -= 1LL * (j-i+1) * Phi(n/i);
 		}
-		return _sumPhi[n]=ret;
+		return _sumPhi[n] = ret;
 	}
+};
+
+namespace _Min25Sieve(){
+
+
+
 };
 
 // =============== 离散数学 / Discrete Maths ===============
